@@ -1,0 +1,88 @@
+# This workflow will install Python dependencies, run tests and lint with a single version of Python
+# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-python
+
+name: test-and-build
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Tests (Ubuntu + MySQL)
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: capstone
+          MYSQL_DATABASE: capstone
+        ports: ["3306:3306"]
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -pcapstone"
+          --health-interval=5s --health-timeout=5s --health-retries=30
+    env:
+      QT_QPA_PLATFORM: offscreen
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - name: System libraries for Qt
+        run: sudo apt-get update && sudo apt-get install -y libegl1 libgl1 libxkbcommon0 libfontconfig1 libdbus-1-3 libglib2.0-0
+      - run: pip install -r requirements-dev.txt
+      - run: python -m pytest tests -q
+
+  build:
+    name: Executable (${{ matrix.os }})
+    needs: test
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - name: System libraries for Qt (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libegl1 libgl1 libxkbcommon0 libfontconfig1 libdbus-1-3 libglib2.0-0
+      - run: pip install -r requirements-dev.txt
+      - name: Build the executable
+        run: pyinstaller packaging/degree_tracker.spec --distpath dist --workpath build -y
+      - name: Self-test the executable (no database needed)
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = "Windows" ]; then EXE=dist/DegreeTracker.exe; else EXE=dist/DegreeTracker; fi
+          QT_QPA_PLATFORM=offscreen "$EXE" --selftest --skip-db
+          test -f "$HOME/DegreeTracker/degree_tracker_selftest.txt" && cat "$HOME/DegreeTracker/degree_tracker_selftest.txt"
+      - name: Assemble the release folder
+        shell: bash
+        run: |
+          mkdir -p release/DegreeTracker
+          cp dist/DegreeTracker* release/DegreeTracker/ 
+          cp docker-compose.yml release/DegreeTracker/
+          cp -r sample_data release/DegreeTracker/sample_data
+          cp docs/MENTOR_QUICKSTART.md release/DegreeTracker/README.md
+          if [ "$RUNNER_OS" = "Windows" ]; then cp packaging/*.bat release/DegreeTracker/; else cp packaging/start-degree-tracker.sh release/DegreeTracker/; fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: DegreeTracker-${{ runner.os }}
+          path: release/DegreeTracker
+
+  release:
+    name: Attach to the GitHub release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions: { contents: write }
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { path: artifacts }
+      - name: Zip each platform
+        run: cd artifacts && for d in */; do (cd "$d" && zip -qr "../${d%/}.zip" .); done
+      - uses: softprops/action-gh-release@v2
+        with: { files: artifacts/*.zip }
