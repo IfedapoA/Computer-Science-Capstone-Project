@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  db:
+    image: mysql:8.0
+    container_name: capstone_mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-capstone}
+      MYSQL_DATABASE: capstone            # Creates the empty database; the app builds and seeds the tables via migrate.py[cite: 37]
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_0900_ai_ci
+    ports:
+      # 127.0.0.1 restricts access strictly to your local machine to protect student records[cite: 38].
+      - "127.0.0.1:3306:3306"
+    volumes:
+      # Data lives in a local folder next to the project (./data/mysql), protecting it from `docker compose down -v`[cite: 38].
+      - ./data/mysql:/var/lib/mysql
+      # NOTE: Raw SQL initialization mounts have been removed. Table creation and catalog seeding 
+      # are handled securely and atomically by the application's migration engine (migrate.py)[cite: 37].
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-p${DB_PASSWORD:-capstone}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
