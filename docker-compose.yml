@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   db:
     image: mysql:8.0
@@ -7,16 +5,16 @@ services:
     restart: unless-stopped
     environment:
       MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-capstone}
-      MYSQL_DATABASE: capstone            # Creates the empty database; the app builds and seeds the tables via migrate.py[cite: 37]
+      MYSQL_DATABASE: capstone            # creates the empty database; the app builds and seeds the tables itself (migrate.py)
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_0900_ai_ci
     ports:
-      # 127.0.0.1 restricts access strictly to your local machine to protect student records[cite: 38].
+      # 127.0.0.1 = reachable from this computer only, to protect student records.
       - "127.0.0.1:3306:3306"
     volumes:
-      # Data lives in a local folder next to the project (./data/mysql), protecting it from `docker compose down -v`[cite: 38].
+      # Data lives in a folder next to this file (./data/mysql), so `docker compose down -v` cannot delete it.
       - ./data/mysql:/var/lib/mysql
-      # NOTE: Raw SQL initialization mounts have been removed. Table creation and catalog seeding 
-      # are handled securely and atomically by the application's migration engine (migrate.py)[cite: 37].
+      # No SQL files are mounted into docker-entrypoint-initdb.d: tables and catalog data are created
+      # safely, once, by the application's numbered migrations (migrate.py).
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-p${DB_PASSWORD:-capstone}"]
       interval: 5s

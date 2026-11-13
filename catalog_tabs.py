@@ -464,6 +464,8 @@ class ProgramDialog(QDialog):
         self.code = QLineEdit(); self.code.setPlaceholderText("short code, e.g. POLS or POLS-M")
         self.name = QLineEdit(); self.name.setPlaceholderText("e.g. Political Science")
         self.type = QComboBox(); self.type.addItems(["Major", "Minor"])
+        if program and program["type"] not in ("Major", "Minor"):        # e.g. a built-in "Double Major": keep its type on save
+            self.type.addItem(program["type"])
         self.dept = QLineEdit(); self.dept.setPlaceholderText("department / school (optional)")
         self.credits = QSpinBox(); self.credits.setRange(0, 200)
         self.n_el = QSpinBox(); self.n_el.setRange(0, 30)
@@ -501,7 +503,8 @@ class ProgramDialog(QDialog):
 
     def refresh(self):
         info = {c["code"]: c for c in db.all_courses()}
-        fill_table(self.table, [[c, info[c]["name"], info[c]["credits"], t] for c, t in self.reqs])
+        fill_table(self.table, [[c, info.get(c, {}).get("name", "(not in catalog)"), info.get(c, {}).get("credits", ""), t]
+                                for c, t in self.reqs])
 
     @guard
     def add_req(self):

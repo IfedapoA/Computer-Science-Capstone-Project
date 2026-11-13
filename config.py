@@ -15,7 +15,7 @@ VERSION = "1.0.0"
 FROZEN = getattr(sys, "frozen", False)                              # True inside the PyInstaller executable
 SRC_DIR = Path(__file__).resolve().parent                           # the code
 RESOURCE_DIR = Path(getattr(sys, "_MEIPASS", SRC_DIR))              # bundled files (Capstone_Database.sql): a temp folder when frozen
-APP_DIR = Path(sys.executable).resolve().parent if FROZEN else SRC_DIR.parent   # next to the .exe, or the project root
+APP_DIR = Path(sys.executable).resolve().parent if FROZEN else SRC_DIR          # next to the .exe, or the project root (modules sit at the root)
 DATA_DIR = Path.home() / APP_NAME if FROZEN else APP_DIR            # backups survive updates of the program
 
 

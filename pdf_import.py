@@ -368,7 +368,7 @@ def parse_columns(path: str | Path, today: Optional[date] = None) -> Optional[Pa
         nums = [float(w["text"]) for w in a["row"] if w["x0"] >= nums_x and _DEC.match(w["text"])]
         cm = _CODE_CELL.match(cell)
         row = ParsedRow(term=sec["term"], year=sec["year"], code=f"{cm.group(1)} {cm.group(2)}" if cm else "",
-                        title=title, credits=nums[0], grade=grade, transfer=sec["transfer"] or grade in ("TR", "TRN"),
+                        title=title, credits=nums[0] if nums else 0.0, grade=grade, transfer=sec["transfer"] or grade in ("TR", "TRN"),
                         source=f"{cell} | {title} | {grade} | {nums}")
         flags = []
         g = grade.upper()

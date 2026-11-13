@@ -1,0 +1,5 @@
+# Runtime packages for the Degree Tracker (python main.py).
+# PySide6-Essentials = QtCore/QtGui/QtWidgets only: everything this program uses, and a much smaller executable than "PySide6".
+PySide6-Essentials>=6.6
+mysql-connector-python>=8.3
+pdfplumber>=0.11

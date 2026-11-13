@@ -1,0 +1,122 @@
+# Builds the Degree Tracker executable for Windows, macOS and Linux.
+#
+#  * every push to main / pull request / manual run  -> executables appear under the run's "Artifacts" (GitHub sign-in needed)
+#  * pushing a tag that starts with v (e.g. v1.0.0)   -> the zips are ALSO attached to a public GitHub Release that anyone
+#                                                        can download from the repository's "Releases" page
+#
+# Only files committed to the repository are used, so anything listed in .gitignore (venv, data, backups ...) is never built in.
+name: build-executables
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Executable (${{ matrix.label }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: windows-latest, label: Windows }
+          - { os: macos-latest,   label: macOS }
+          - { os: ubuntu-22.04,   label: Linux }      # an older Ubuntu = the Linux build also runs on older distributions
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Qt system libraries (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libegl1 libgl1 libxkbcommon0 libxkbcommon-x11-0 libfontconfig1 libdbus-1-3 libglib2.0-0
+
+      - name: Install Python packages
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt pyinstaller
+
+      - name: Check that every module compiles
+        run: python -m compileall -q .
+
+      - name: Build the executable
+        run: python -m PyInstaller packaging/degree_tracker.spec --distpath dist --workpath build -y
+
+      - name: Self-test the executable (Linux)
+        if: runner.os == 'Linux'
+        env: { QT_QPA_PLATFORM: offscreen }
+        run: |
+          dist/DegreeTracker --version
+          dist/DegreeTracker --selftest --skip-db
+
+      - name: Self-test the executable (macOS)
+        if: runner.os == 'macOS'
+        env: { QT_QPA_PLATFORM: offscreen }
+        run: |
+          dist/DegreeTracker.app/Contents/MacOS/DegreeTracker --version
+          dist/DegreeTracker.app/Contents/MacOS/DegreeTracker --selftest --skip-db
+
+      - name: Self-test the executable (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          # a windowed .exe has no console, so the self-test writes its result to a file
+          $env:QT_QPA_PLATFORM = "offscreen"
+          $p = Start-Process -FilePath "dist\DegreeTracker.exe" -ArgumentList "--selftest","--skip-db" -Wait -PassThru
+          Get-Content "$env:USERPROFILE\DegreeTracker\degree_tracker_selftest.txt"
+          if ($p.ExitCode -ne 0) { throw "self-test failed (exit code $($p.ExitCode))" }
+
+      - name: Assemble and zip the download
+        run: |
+          mkdir -p release/DegreeTracker
+          if [ "$RUNNER_OS" = "macOS" ]; then cp -R dist/DegreeTracker.app release/DegreeTracker/; else cp dist/DegreeTracker* release/DegreeTracker/; fi
+          cp docker-compose.yml release/DegreeTracker/
+          cp docs/MENTOR_QUICKSTART.md release/DegreeTracker/README.md
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            cp packaging/*.bat release/DegreeTracker/
+          else
+            cp packaging/start-degree-tracker.sh release/DegreeTracker/
+            chmod +x release/DegreeTracker/start-degree-tracker.sh
+          fi
+          ZIP="DegreeTracker-${{ matrix.label }}.zip"
+          # zip HERE (not after upload): artifact upload drops the executable permission on macOS/Linux files
+          case "$RUNNER_OS" in
+            Windows) (cd release && 7z a -tzip "../$ZIP" DegreeTracker > /dev/null) ;;
+            macOS)   ditto -c -k --sequesterRsrc --keepParent release/DegreeTracker "$ZIP" ;;
+            *)       (cd release && zip -qry "../$ZIP" DegreeTracker) ;;
+          esac
+          ls -l "$ZIP"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: DegreeTracker-${{ matrix.label }}
+          path: DegreeTracker-${{ matrix.label }}.zip
+          if-no-files-found: error
+
+  release:
+    name: Publish the GitHub Release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/*.zip
+          generate_release_notes: true

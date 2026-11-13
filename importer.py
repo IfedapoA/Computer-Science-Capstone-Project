@@ -220,7 +220,7 @@ def parse_programs(path) -> Preview:
         elif code and code not in courses and not CODE_RX.match(code):
             err = f"Invalid course code '{r['code']}'"
         elif rtype is None:
-            err = f"requirement_type must be Core or Elective"
+            err = "requirement_type must be Core or Elective"
         if err:
             pv.errors.append((i, err))
             continue

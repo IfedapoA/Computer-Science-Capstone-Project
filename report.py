@@ -198,14 +198,14 @@ def build_report_html(*, student_row: dict, advisor_name: str, catalog, audit, p
                             f"{pa.units_completed} of {pa.units_total} done" + (f" (+{pa.units_in_progress} in progress)" if pa.units_in_progress else "")], None))
         if audit.core:
             c = audit.core
-            rows_p.append(([f"<b>CORE curriculum</b><br><font size='2'>required of every student</font>",
+            rows_p.append((["<b>CORE curriculum</b><br><font size='2'>required of every student</font>",
                             _bar(c.percent_complete, 100.0 * c.units_in_progress / c.units_total if c.units_total else 0),
                             f"{c.units_completed} of {c.units_total} done" + (f" (+{c.units_in_progress} in progress)" if c.units_in_progress else "")], None))
         h.append(_table(["Requirement area", "Progress", "Status"], rows_p, ["30%", "40%", "30%"]))
-        h.append(f"<p><font size='2' color='#556677'>Green = done, amber = in progress, grey = still to do. The projected graduation date is an estimate that "
-                 f"counts major, minor and CORE requirements only (not free electives or the 120-credit total) and assumes a normal course load.</font></p>")
+        h.append("<p><font size='2' color='#556677'>Green = done, amber = in progress, grey = still to do. The projected graduation date is an estimate that "
+                 "counts major, minor and CORE requirements only (not free electives or the 120-credit total) and assumes a normal course load.</font></p>")
         if o["chart"] and any(c.cards for c in columns):
-            h.append(f"<p><b>Credits by semester</b></p><p><img src='chart_credits' width='680'></p>")
+            h.append("<p><b>Credits by semester</b></p><p><img src='chart_credits' width='680'></p>")
 
     # ---- registration plan
     if o["registration"] and reg_term:
@@ -228,7 +228,7 @@ def build_report_html(*, student_row: dict, advisor_name: str, catalog, audit, p
                     summ.append((["[&nbsp;&nbsp;]", f"<b>{E(code)}</b>", E(c.name if c else ""), f"{c.credits if c else '?'}", E(_needed_for(code, audit)) or "&nbsp;"], BLUE))
             summ.append((["", "", "<b>Total credits</b>", f"<b>{total:g}</b>", ""], LIGHT))
             h.append(_table(["Done", "Course", "Title", "Cr", "Counts toward"], summ, ["8%", "14%", "40%", "6%", "32%"]))
-            h.append(f"<p><font size='2' color='#556677'>Tick each box once you have registered.</font></p>")
+            h.append("<p><font size='2' color='#556677'>Tick each box once you have registered.</font></p>")
             h.append("<p><b>Class sections</b></p>")
             for code in [c for c in reg_courses if not c.startswith(CORE_PREFIX)]:
                 c = catalog.courses.get(code)
@@ -257,7 +257,7 @@ def build_report_html(*, student_row: dict, advisor_name: str, catalog, audit, p
     # ---- requirements (tables, needed first)
     if o["requirements"]:
         h.append(_h2("Degree requirements"))
-        h.append(f"<p><font size='2' color='#556677'>Sorted so that what you still need comes first.</font></p>")
+        h.append("<p><font size='2' color='#556677'>Sorted so that what you still need comes first.</font></p>")
         order = {"Remaining": 0, "In Progress": 1, "Planned": 1, "Completed": 2}
         for pa in audit.programs:
             h.append(f"<p style='margin-bottom:2px'><b>{E(pa.program.name)}</b> ({pa.program.type}) &nbsp; {pa.units_completed} of {pa.units_total} done</p>"
